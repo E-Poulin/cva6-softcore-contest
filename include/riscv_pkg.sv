@@ -407,6 +407,8 @@ package riscv;
         CSR_MHPM_COUNTER_29 = 12'hB1D,  // reserved
         CSR_MHPM_COUNTER_30 = 12'hB1E,  // reserved
         CSR_MHPM_COUNTER_31 = 12'hB1F,  // reserved
+	// Fence control (platform specific)
+	CSR_FENCE	   = 12'h702,
         // Cache Control (platform specifc)
         CSR_DCACHE         = 12'h701,
         CSR_ICACHE         = 12'h700,

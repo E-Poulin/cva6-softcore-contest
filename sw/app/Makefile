@@ -42,6 +42,9 @@ bsp_dir = ../bsp
 #--------------------------------------------------------------------
 
 bmarks = \
+	test_csr \
+	cachetest_2_4 \
+	non_cacheable \
 	coremark \
 	helloworld \
 	helloworld_printf \

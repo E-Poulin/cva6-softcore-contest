@@ -181,9 +181,16 @@ module ariane import ariane_pkg::*; #(
   logic                     tw_csr_id;
   logic                     tsr_csr_id;
   irq_ctrl_t                irq_ctrl_csr_id;
-  logic                     dcache_en_csr_nbdcache;
   logic                     csr_write_fflags_commit_cs;
+  logic                     dcache_en_csr;
   logic                     icache_en_csr;
+  logic                     dcache_flush_csr;
+  logic                     dcache_flush_csr_active;
+  logic			    dcache_flush_temp = 1'b0;
+  logic                     icache_flush_csr;
+  logic                     fence_csr;
+  logic                     fence_i_csr;
+  logic                     sfence_vma_csr;
   logic                     debug_mode;
   logic                     single_step_csr_commit;
   riscv::pmpcfg_t [15:0]    pmpcfg;
@@ -535,8 +542,13 @@ module ariane import ariane_pkg::*; #(
     .tsr_o                  ( tsr_csr_id                    ),
     .debug_mode_o           ( debug_mode                    ),
     .single_step_o          ( single_step_csr_commit        ),
-    .dcache_en_o            ( dcache_en_csr_nbdcache        ),
+    .dcache_en_o            ( dcache_en_csr        	    ),
     .icache_en_o            ( icache_en_csr                 ),
+    .dcache_flush_o         ( dcache_flush_csr              ),
+    .icache_flush_o         ( icache_flush_csr              ),
+    .fence_o                ( fence_csr        	    	    ),
+    .fence_i_o              ( fence_i_csr                   ),
+    .sfence_vma_o           ( sfence_vma_csr                ),
     .perf_addr_o            ( addr_csr_perf                 ),
     .perf_data_o            ( data_csr_perf                 ),
     .perf_data_i            ( data_perf_csr                 ),
@@ -597,9 +609,9 @@ module ariane import ariane_pkg::*; #(
     .set_debug_pc_i         ( set_debug_pc                  ),
     .flush_csr_i            ( flush_csr_ctrl                ),
     .resolved_branch_i      ( resolved_branch               ),
-    .fence_i_i              ( fence_i_commit_controller     ),
-    .fence_i                ( fence_commit_controller       ),
-    .sfence_vma_i           ( sfence_vma_commit_controller  ),
+    .fence_i_i              ( fence_i_commit_controller    | fence_csr         	),
+    .fence_i                ( fence_commit_controller      | fence_i_csr  	),
+    .sfence_vma_i           ( sfence_vma_commit_controller | sfence_vma_csr 	),
     .flush_commit_i         ( flush_commit                  ),
 
     .flush_icache_o         ( icache_flush_ctrl_cache       ),
@@ -620,15 +632,15 @@ module ariane import ariane_pkg::*; #(
     .rst_ni                ( rst_ni                      ),
     // I$
     .icache_en_i           ( icache_en_csr               ),
-    .icache_flush_i        ( icache_flush_ctrl_cache     ),
+    .icache_flush_i        ( icache_flush_ctrl_cache | icache_flush_csr	),
     .icache_miss_o         ( icache_miss_cache_perf      ),
     .icache_areq_i         ( icache_areq_ex_cache        ),
     .icache_areq_o         ( icache_areq_cache_ex        ),
     .icache_dreq_i         ( icache_dreq_if_cache        ),
     .icache_dreq_o         ( icache_dreq_cache_if        ),
     // D$
-    .dcache_enable_i       ( dcache_en_csr_nbdcache      ),
-    .dcache_flush_i        ( dcache_flush_ctrl_cache     ),
+    .dcache_enable_i       ( dcache_en_csr	         	 ),
+    .dcache_flush_i        ( dcache_flush_ctrl_cache | dcache_flush_csr_active	),
     .dcache_flush_ack_o    ( dcache_flush_ack_cache_ctrl ),
     // to commit stage
     .dcache_amo_req_i      ( amo_req                     ),
@@ -655,7 +667,7 @@ module ariane import ariane_pkg::*; #(
     // note: this only works with one cacheable region
     // not as important since this cache subsystem is about to be
     // deprecated
-    .CACHE_START_ADDR    ( ArianeCfg.CachedRegionAddrBase )
+    .ArianeCfg             ( ArianeCfg                   )
   ) i_cache_subsystem (
     // to D$
     .clk_i                 ( clk_i                       ),
@@ -663,15 +675,15 @@ module ariane import ariane_pkg::*; #(
     .priv_lvl_i            ( priv_lvl                    ),
     // I$
     .icache_en_i           ( icache_en_csr               ),
-    .icache_flush_i        ( icache_flush_ctrl_cache     ),
+    .icache_flush_i        ( icache_flush_ctrl_cache | icache_flush_csr	),
     .icache_miss_o         ( icache_miss_cache_perf      ),
     .icache_areq_i         ( icache_areq_ex_cache        ),
     .icache_areq_o         ( icache_areq_cache_ex        ),
     .icache_dreq_i         ( icache_dreq_if_cache        ),
     .icache_dreq_o         ( icache_dreq_cache_if        ),
     // D$
-    .dcache_enable_i       ( dcache_en_csr_nbdcache      ),
-    .dcache_flush_i        ( dcache_flush_ctrl_cache     ),
+    .dcache_enable_i       ( dcache_en_csr               ),
+    .dcache_flush_i        ( dcache_flush_ctrl_cache | dcache_flush_csr_active	),
     .dcache_flush_ack_o    ( dcache_flush_ack_cache_ctrl ),
     // to commit stage
     .amo_req_i             ( amo_req                     ),
@@ -688,7 +700,13 @@ module ariane import ariane_pkg::*; #(
   );
   assign dcache_commit_wbuffer_not_ni = 1'b1;
 `endif
-
+  always @(posedge dcache_flush_csr) begin
+    assign dcache_flush_temp = 1'b1;
+  end
+  assign dcache_flush_csr_active = dcache_flush_temp ? 1'b1 : 1'b0;
+  always @(posedge dcache_flush_ack_cache_ctrl) begin
+    assign dcache_flush_temp = 1'b0;
+  end
   // -------------------
   // Parameter Check
   // -------------------

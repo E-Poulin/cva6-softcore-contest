@@ -70,7 +70,7 @@ package ariane_pkg;
       // cached region
       NrCachedRegionRules:    1,
       CachedRegionAddrBase:  {64'h8000_0000},
-      CachedRegionLength:    {64'h40000000},
+      CachedRegionLength:    {64'h20000000},
       //  cache config
       Axi64BitCompliant:      1'b1,
       SwapEndianess:          1'b0,
@@ -417,17 +417,18 @@ package ariane_pkg;
     localparam int unsigned DCACHE_INDEX_WIDTH = $clog2(`CONFIG_L1D_SIZE / DCACHE_SET_ASSOC);
     localparam int unsigned DCACHE_TAG_WIDTH   = riscv::PLEN - DCACHE_INDEX_WIDTH;
 `else
-    // align to openpiton for the time being (this should be more configurable in the future)
-     // I$
-    localparam int unsigned ICACHE_INDEX_WIDTH = 12;  // in bit
+    // I$
+    localparam int unsigned CONFIG_L1I_SIZE    = 16*1024;
+    localparam int unsigned ICACHE_SET_ASSOC   = 64; // must be between 4 to 64
+    localparam int unsigned ICACHE_INDEX_WIDTH = $clog2(CONFIG_L1I_SIZE / ICACHE_SET_ASSOC);  // in bit, contains also offset width
     localparam int unsigned ICACHE_TAG_WIDTH   = riscv::PLEN-ICACHE_INDEX_WIDTH;  // in bit
     localparam int unsigned ICACHE_LINE_WIDTH  = 128; // in bit
-    localparam int unsigned ICACHE_SET_ASSOC   = 4;
     // D$
-    localparam int unsigned DCACHE_INDEX_WIDTH = 12;  // in bit
+    localparam int unsigned CONFIG_L1D_SIZE    = 32*1024;
+    localparam int unsigned DCACHE_SET_ASSOC   = 64; // must be between 8 to 64
+    localparam int unsigned DCACHE_INDEX_WIDTH = $clog2(CONFIG_L1D_SIZE / DCACHE_SET_ASSOC);  // in bit, contains also offset width
     localparam int unsigned DCACHE_TAG_WIDTH   = riscv::PLEN-DCACHE_INDEX_WIDTH;  // in bit
     localparam int unsigned DCACHE_LINE_WIDTH  = 128; // in bit
-    localparam int unsigned DCACHE_SET_ASSOC   = 8;
 `endif
 
     // ---------------
@@ -674,6 +675,7 @@ package ariane_pkg;
         logic                     req;                    // we request a new word
         logic                     kill_s1;                // kill the current request
         logic                     kill_s2;                // kill the last request
+        logic                     spec;                   // request is speculative
         logic [riscv::VLEN-1:0]   vaddr;                  // 1st cycle: 12 bit index is taken for lookup
     } icache_dreq_i_t;
 
