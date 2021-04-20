@@ -70,7 +70,7 @@ package ariane_pkg;
       // cached region
       NrCachedRegionRules:    1,
       CachedRegionAddrBase:  {64'h8000_0000},
-      CachedRegionLength:    {64'h20000000},
+      CachedRegionLength:    {64'h40000000},
       //  cache config
       Axi64BitCompliant:      1'b1,
       SwapEndianess:          1'b0,
@@ -419,7 +419,7 @@ package ariane_pkg;
 `else
     // I$
     localparam int unsigned CONFIG_L1I_SIZE    = 16*1024;
-    localparam int unsigned ICACHE_SET_ASSOC   = 64; // must be between 4 to 64
+    localparam int unsigned ICACHE_SET_ASSOC   = 4; // must be between 4 to 64
     localparam int unsigned ICACHE_INDEX_WIDTH = $clog2(CONFIG_L1I_SIZE / ICACHE_SET_ASSOC);  // in bit, contains also offset width
     localparam int unsigned ICACHE_TAG_WIDTH   = riscv::PLEN-ICACHE_INDEX_WIDTH;  // in bit
     localparam int unsigned ICACHE_LINE_WIDTH  = 128; // in bit
