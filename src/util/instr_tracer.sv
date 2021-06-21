@@ -22,7 +22,7 @@ import uvm_pkg::*;
 
 module instr_tracer (
   instr_tracer_if   tracer_if,
-  input logic[63:0] hart_id_i
+  input logic[riscv::XLEN-1:0] hart_id_i
 );
 
   // keep the decoded instructions in a queue
@@ -66,7 +66,10 @@ module instr_tracer (
     forever begin
       automatic ariane_pkg::bp_resolve_t bp_instruction = '0;
       // new cycle, we are only interested if reset is de-asserted
-      @(tracer_if.pck iff tracer_if.pck.rstn);
+      @(tracer_if.pck) if (tracer_if.pck.rstn !== 1'b1) begin
+        flush();
+        continue;
+      end
       // increment clock tick
       clk_ticks++;
 

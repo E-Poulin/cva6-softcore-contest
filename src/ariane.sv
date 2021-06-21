@@ -29,7 +29,7 @@ module ariane import ariane_pkg::*; #(
   input  logic                         clk_i,
   input  logic                         rst_ni,
   // Core ID, Cluster ID and boot address are considered more or less static
-  input  logic [riscv::XLEN-1:0]                  boot_addr_i,  // reset boot address
+  input  logic [riscv::VLEN-1:0]       boot_addr_i,  // reset boot address
   input  logic [riscv::XLEN-1:0]                  hart_id_i,    // hart id in a multicore environment (reflected in a CSR)
 
   // Interrupt inputs
@@ -187,7 +187,7 @@ module ariane import ariane_pkg::*; #(
   logic                     debug_mode;
   logic                     single_step_csr_commit;
   riscv::pmpcfg_t [15:0]    pmpcfg;
-  logic [15:0][53:0]        pmpaddr;
+  logic [15:0][riscv::PLEN-3:0] pmpaddr;
   // ----------------------------
   // Performance Counters <-> *
   // ----------------------------
@@ -247,7 +247,7 @@ module ariane import ariane_pkg::*; #(
     .flush_i             ( flush_ctrl_if                 ), // not entirely correct
     .flush_bp_i          ( 1'b0                          ),
     .debug_mode_i        ( debug_mode                    ),
-    .boot_addr_i         ( boot_addr_i[riscv::XLEN-1:0]  ),
+    .boot_addr_i         ( boot_addr_i[riscv::VLEN-1:0]  ),
     .icache_dreq_i       ( icache_dreq_cache_if          ),
     .icache_dreq_o       ( icache_dreq_if_cache          ),
     .resolved_branch_i   ( resolved_branch               ),
@@ -502,7 +502,7 @@ module ariane import ariane_pkg::*; #(
     .halt_csr_o             ( halt_csr_ctrl                 ),
     .commit_instr_i         ( commit_instr_id_commit        ),
     .commit_ack_i           ( commit_ack                    ),
-    .boot_addr_i            ( boot_addr_i[riscv::XLEN-1:0]  ),
+    .boot_addr_i            ( boot_addr_i[riscv::VLEN-1:0]  ),
     .hart_id_i              ( hart_id_i[riscv::XLEN-1:0]    ),
     .ex_i                   ( ex_commit                     ),
     .csr_op_i               ( csr_op_commit_csr             ),
@@ -655,7 +655,7 @@ module ariane import ariane_pkg::*; #(
     // note: this only works with one cacheable region
     // not as important since this cache subsystem is about to be
     // deprecated
-    .CACHE_START_ADDR    ( ArianeCfg.CachedRegionAddrBase )
+    .ArianeCfg             ( ArianeCfg                   )
   ) i_cache_subsystem (
     // to D$
     .clk_i                 ( clk_i                       ),
@@ -862,7 +862,7 @@ module ariane import ariane_pkg::*; #(
     if (~rst_ni) begin
       cycles <= 0;
     end else begin
-      string mode = "";
+      byte mode = "";
       if (debug_mode) mode = "D";
       else begin
         case (priv_lvl)

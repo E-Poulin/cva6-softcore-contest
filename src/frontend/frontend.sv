@@ -24,7 +24,7 @@ module frontend import ariane_pkg::*; #(
   input  logic               flush_bp_i,         // flush branch prediction
   input  logic               debug_mode_i,
   // global input
-  input  logic [riscv::XLEN-1:0]        boot_addr_i,
+  input  logic [riscv::VLEN-1:0]        boot_addr_i,
   // Set a new PC
   // mispredict
   input  bp_resolve_t        resolved_branch_i,  // from controller signaling a branch_predict -> update BTB
@@ -251,6 +251,9 @@ module frontend import ariane_pkg::*; #(
     // Update Control Flow Predictions
     bht_update_t bht_update;
     btb_update_t btb_update;
+    logic speculative_q,speculative_d;
+    assign speculative_d = (speculative_q && !resolved_branch_i.valid || |is_branch || |is_return || |is_jalr) && !flush_i;
+    assign icache_dreq_o.spec = speculative_d;
 
     assign bht_update.valid = resolved_branch_i.valid
                                 & (resolved_branch_i.cf_type == ariane_pkg::Branch);
@@ -284,8 +287,8 @@ module frontend import ariane_pkg::*; #(
       // boot_addr_i will be assigned a constant
       // on the top-level.
       if (npc_rst_load_q) begin
-        npc_d         = boot_addr_i[riscv::VLEN-1:0];
-        fetch_address = boot_addr_i[riscv::VLEN-1:0];
+        npc_d         = boot_addr_i;
+        fetch_address = boot_addr_i;
       end else begin
         fetch_address    = npc_q;
         // keep stable by default
@@ -328,6 +331,7 @@ module frontend import ariane_pkg::*; #(
       if (!rst_ni) begin
         npc_rst_load_q    <= 1'b1;
         npc_q             <= '0;
+        speculative_q     <= '0;
         icache_data_q     <= '0;
         icache_valid_q    <= 1'b0;
         icache_vaddr_q    <= 'b0;
@@ -337,6 +341,7 @@ module frontend import ariane_pkg::*; #(
       end else begin
         npc_rst_load_q    <= 1'b0;
         npc_q             <= npc_d;
+        speculative_q    <= speculative_d;
         icache_valid_q    <= icache_dreq_i.valid;
         if (icache_dreq_i.valid) begin
           icache_data_q        <= icache_data;
@@ -434,7 +439,7 @@ module frontend import ariane_pkg::*; #(
     // pragma translate_off
     `ifndef VERILATOR
       initial begin
-        assert (FETCH_WIDTH == 32 || FETCH_WIDTH == 64) else $fatal("[frontend] fetch width != not supported");
+        assert (FETCH_WIDTH == 32 || FETCH_WIDTH == 64) else $fatal(1, "[frontend] fetch width != not supported");
       end
     `endif
     // pragma translate_on

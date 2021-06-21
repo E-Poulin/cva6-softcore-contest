@@ -39,11 +39,11 @@ package riscv;
     localparam ModeW      = (XLEN == 32) ? 1 : 4;
     localparam ASIDW      = (XLEN == 32) ? 9 : 16;
     localparam PPNW       = (XLEN == 32) ? 22 : 44;
-    localparam logic [ModeW-1:0] MODE_SV = (XLEN == 32) ? ModeSv32[ModeW-1:0] : ModeSv39[ModeW-1:0];
-    localparam SV         = (MODE_SV == ModeSv32[ModeW-1:0]) ? 32 : 39;
-    localparam VPN2       = (riscv::VLEN-31 < 8) ? riscv::VLEN-31 : 8;
+    localparam vm_mode_t MODE_SV = (XLEN == 32) ? ModeSv32 : ModeSv39;
+    localparam SV         = (MODE_SV == ModeSv32) ? 32 : 39;
+    localparam VPN2       = (VLEN-31 < 8) ? VLEN-31 : 8;
 
-    typedef logic [riscv::XLEN-1:0] xlen_t;
+    typedef logic [XLEN-1:0] xlen_t;
 
     // --------------------
     // Privilege Spec
@@ -243,6 +243,7 @@ package riscv;
     localparam OpcodeC1             = 2'b01;
     localparam OpcodeC1Addi         = 3'b000;
     localparam OpcodeC1Addiw        = 3'b001;
+    localparam OpcodeC1Jal          = 3'b001; //for RV32I only
     localparam OpcodeC1Li           = 3'b010;
     localparam OpcodeC1LuiAddi16sp  = 3'b011;
     localparam OpcodeC1MiscAlu      = 3'b100;

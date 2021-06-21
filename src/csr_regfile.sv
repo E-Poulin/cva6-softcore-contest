@@ -29,7 +29,7 @@ module csr_regfile import ariane_pkg::*; #(
     input  scoreboard_entry_t [NrCommitPorts-1:0] commit_instr_i, // the instruction we want to commit
     input  logic [NrCommitPorts-1:0]              commit_ack_i,   // Commit acknowledged a instruction -> increase instret CSR
     // Core and Cluster ID
-    input  logic[riscv::XLEN-1:0] boot_addr_i,                // Address from which to start booting, mtvec is set to the same address
+    input  logic[riscv::VLEN-1:0] boot_addr_i,                // Address from which to start booting, mtvec is set to the same address
     input  logic[riscv::XLEN-1:0] hart_id_i,                  // Hart id in a multicore environment (reflected in a CSR)
     // we are taking an exception
     input exception_t             ex_i,                       // We've got an exception from the commit stage, take it
@@ -85,7 +85,7 @@ module csr_regfile import ariane_pkg::*; #(
     output logic                  perf_we_o,
     // PMPs
     output riscv::pmpcfg_t [15:0] pmpcfg_o,   // PMP configuration containing pmpcfg for max 16 PMPs
-    output logic [15:0][53:0]     pmpaddr_o   // PMP addresses
+    output logic [15:0][riscv::PLEN-3:0] pmpaddr_o            // PMP addresses
 );
     // internal signal to keep track of access exceptions
     logic        read_access_exception, update_access_exception, privilege_violation;
@@ -361,7 +361,7 @@ module csr_regfile import ariane_pkg::*; #(
         // boot_addr_i will be assigned a constant
         // on the top-level.
         if (mtvec_rst_load_q) begin
-            mtvec_d             = boot_addr_i + 'h40;
+            mtvec_d             = {{riscv::XLEN-riscv::VLEN{1'b0}}, boot_addr_i} + 'h40;
         end else begin
             mtvec_d             = mtvec_q;
         end
@@ -494,7 +494,8 @@ module csr_regfile import ariane_pkg::*; #(
                         // only make ASID_LEN - 1 bit stick, that way software can figure out how many ASID bits are supported
                         satp.asid = satp.asid & {{(riscv::ASIDW-AsidWidth){1'b0}}, {AsidWidth{1'b1}}};
                         // only update if we actually support this mode
-                        if (satp.mode == riscv::ModeOff[riscv::ModeW-1:0] || satp.mode == riscv::MODE_SV) satp_d = satp;
+                        if (riscv::vm_mode_t'(satp.mode) == riscv::ModeOff ||
+                            riscv::vm_mode_t'(satp.mode) == riscv::MODE_SV) satp_d = satp;
                     end
                     // changing the mode can have side-effects on address translation (e.g.: other instructions), re-fetch
                     // the next instruction by executing a flush
@@ -595,24 +596,6 @@ module csr_regfile import ariane_pkg::*; #(
                 // 1. refuse to update any locked entry
                 // 2. also refuse to update the entry below a locked TOR entry
                 // Note that writes to pmpcfg below a locked TOR entry are valid
-                /*riscv::CSR_PMPCFG0: for (int i = 0; i < 8; i++) if (!pmpcfg_q[i].locked) pmpcfg_d[i]  = csr_wdata[i*8+:8];
-                riscv::CSR_PMPCFG2: for (int i = 0; i < 8; i++) if (!pmpcfg_q[i+8].locked) pmpcfg_d[i+8]  = csr_wdata[i*8+:8];
-                riscv::CSR_PMPADDR0:   if (!pmpcfg_q[ 0].locked && !(pmpcfg_q[ 1].locked && pmpcfg_q[ 1].addr_mode == riscv::TOR))  pmpaddr_d[0]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR1:   if (!pmpcfg_q[ 1].locked && !(pmpcfg_q[ 2].locked && pmpcfg_q[ 2].addr_mode == riscv::TOR))  pmpaddr_d[1]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR2:   if (!pmpcfg_q[ 2].locked && !(pmpcfg_q[ 3].locked && pmpcfg_q[ 3].addr_mode == riscv::TOR))  pmpaddr_d[2]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR3:   if (!pmpcfg_q[ 3].locked && !(pmpcfg_q[ 4].locked && pmpcfg_q[ 4].addr_mode == riscv::TOR))  pmpaddr_d[3]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR4:   if (!pmpcfg_q[ 4].locked && !(pmpcfg_q[ 5].locked && pmpcfg_q[ 5].addr_mode == riscv::TOR))  pmpaddr_d[4]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR5:   if (!pmpcfg_q[ 5].locked && !(pmpcfg_q[ 6].locked && pmpcfg_q[ 6].addr_mode == riscv::TOR))  pmpaddr_d[5]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR6:   if (!pmpcfg_q[ 6].locked && !(pmpcfg_q[ 7].locked && pmpcfg_q[ 7].addr_mode == riscv::TOR))  pmpaddr_d[6]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR7:   if (!pmpcfg_q[ 7].locked && !(pmpcfg_q[ 8].locked && pmpcfg_q[ 8].addr_mode == riscv::TOR))  pmpaddr_d[7]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR8:   if (!pmpcfg_q[ 8].locked && !(pmpcfg_q[ 9].locked && pmpcfg_q[ 9].addr_mode == riscv::TOR))  pmpaddr_d[8]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR9:   if (!pmpcfg_q[ 9].locked && !(pmpcfg_q[10].locked && pmpcfg_q[10].addr_mode == riscv::TOR))  pmpaddr_d[9]   = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR10:  if (!pmpcfg_q[10].locked && !(pmpcfg_q[11].locked && pmpcfg_q[11].addr_mode == riscv::TOR))  pmpaddr_d[10]  = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR11:  if (!pmpcfg_q[11].locked && !(pmpcfg_q[12].locked && pmpcfg_q[12].addr_mode == riscv::TOR))  pmpaddr_d[11]  = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR12:  if (!pmpcfg_q[12].locked && !(pmpcfg_q[13].locked && pmpcfg_q[13].addr_mode == riscv::TOR))  pmpaddr_d[12]  = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR13:  if (!pmpcfg_q[13].locked && !(pmpcfg_q[14].locked && pmpcfg_q[14].addr_mode == riscv::TOR))  pmpaddr_d[13]  = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR14:  if (!pmpcfg_q[14].locked && !(pmpcfg_q[15].locked && pmpcfg_q[15].addr_mode == riscv::TOR))  pmpaddr_d[14]  = csr_wdata[riscv::VLEN-3:0];
-                riscv::CSR_PMPADDR15:  if (!pmpcfg_q[15].locked)  pmpaddr_d[15]  = csr_wdata[riscv::VLEN-3:0];*/
                 riscv::CSR_PMPCFG0:    for (int i = 0; i < (riscv::XLEN/8); i++) if (!pmpcfg_q[i].locked) pmpcfg_d[i]  = csr_wdata[i*8+:8];
                 riscv::CSR_PMPCFG1: begin
                     if (riscv::XLEN == 32) begin
@@ -641,7 +624,6 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_PMPADDR13:  if (!pmpcfg_q[13].locked && !(pmpcfg_q[14].locked && pmpcfg_q[14].addr_mode == riscv::TOR))  pmpaddr_d[13]  = csr_wdata[riscv::PLEN-3:0];
                 riscv::CSR_PMPADDR14:  if (!pmpcfg_q[14].locked && !(pmpcfg_q[15].locked && pmpcfg_q[15].addr_mode == riscv::TOR))  pmpaddr_d[14]  = csr_wdata[riscv::PLEN-3:0];
                 riscv::CSR_PMPADDR15:  if (!pmpcfg_q[15].locked)  pmpaddr_d[15]  = csr_wdata[riscv::PLEN-3:0];
-
                 default: update_access_exception = 1'b1;
             endcase
         end
@@ -819,7 +801,7 @@ module csr_regfile import ariane_pkg::*; #(
         // ------------------------------
         // Set the address translation at which the load and stores should occur
         // we can use the previous values since changing the address translation will always involve a pipeline flush
-        if (mprv && satp_q.mode == riscv::MODE_SV && (mstatus_q.mpp != riscv::PRIV_LVL_M))
+        if (mprv && riscv::vm_mode_t'(satp_q.mode) == riscv::MODE_SV && (mstatus_q.mpp != riscv::PRIV_LVL_M))
             en_ld_st_translation_d = 1'b1;
         else // otherwise we go with the regular settings
             en_ld_st_translation_d = en_translation_o;
@@ -1055,7 +1037,8 @@ module csr_regfile import ariane_pkg::*; #(
     assign asid_o           = satp_q.asid[AsidWidth-1:0];
     assign sum_o            = mstatus_q.sum;
     // we support bare memory addressing and SV39
-    assign en_translation_o = (satp_q.mode == riscv::MODE_SV && priv_lvl_o != riscv::PRIV_LVL_M)
+    assign en_translation_o = (riscv::vm_mode_t'(satp_q.mode) == riscv::MODE_SV &&
+                               priv_lvl_o != riscv::PRIV_LVL_M)
                               ? 1'b1
                               : 1'b0;
     assign mxr_o            = mstatus_q.mxr;
@@ -1089,7 +1072,6 @@ module csr_regfile import ariane_pkg::*; #(
 `endif
             dcsr_q                 <= '0;
             dcsr_q.prv             <= riscv::PRIV_LVL_M;
-            dcsr_q.xdebugver       <= 4'h4;
             dpc_q                  <= '0;
             dscratch0_q            <= {riscv::XLEN{1'b0}};
             dscratch1_q            <= {riscv::XLEN{1'b0}};

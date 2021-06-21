@@ -58,6 +58,7 @@ src/fpu/src/fpnew_rounding.sv
 src/fpu/src/fpnew_top.sv
 src/axi/src/axi_pkg.sv
 tb/ariane_soc_pkg.sv
+tb/ariane_axi_soc_pkg.sv
 include/ariane_axi_pkg.sv
 include/wt_cache_pkg.sv
 //include/std_cache_pkg.sv
@@ -76,6 +77,8 @@ src/axi_mem_if/src/axi2mem.sv
 src/tech_cells_generic/src/pulp_clock_gating.sv
 src/tech_cells_generic/src/cluster_clock_inverter.sv
 src/tech_cells_generic/src/pulp_clock_mux2.sv
+src/pmp/src/pmp.sv
+src/pmp/src/pmp_entry.sv
 src/axi_adapter.sv
 src/alu.sv
 src/fpu_wrap.sv
@@ -118,7 +121,7 @@ src/cache_subsystem/wt_dcache_mem.sv
 src/cache_subsystem/wt_dcache_missunit.sv
 src/cache_subsystem/wt_dcache_wbuffer.sv
 src/cache_subsystem/wt_dcache.sv
-src/cache_subsystem/wt_icache.sv
+src/cache_subsystem/cva6_icache.sv
 src/cache_subsystem/wt_l15_adapter.sv
 src/cache_subsystem/wt_cache_subsystem.sv
 src/clint/clint.sv

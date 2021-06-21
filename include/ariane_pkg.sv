@@ -419,15 +419,17 @@ package ariane_pkg;
 `else
     // align to openpiton for the time being (this should be more configurable in the future)
      // I$
-    localparam int unsigned ICACHE_INDEX_WIDTH = 12;  // in bit
-    localparam int unsigned ICACHE_TAG_WIDTH   = riscv::PLEN-ICACHE_INDEX_WIDTH;  // in bit
-    localparam int unsigned ICACHE_LINE_WIDTH  = 128; // in bit
+    localparam int unsigned CONFIG_L1I_SIZE    = 16*1024;
     localparam int unsigned ICACHE_SET_ASSOC   = 4;
+    localparam int unsigned ICACHE_INDEX_WIDTH = $clog2(CONFIG_L1I_SIZE / ICACHE_SET_ASSOC);  // in bit, contains also offset width
+    localparam int unsigned ICACHE_TAG_WIDTH   = riscv::PLEN-ICACHE_INDEX_WIDTH;  // in bit
+    localparam int unsigned ICACHE_LINE_WIDTH  = 256; // in bit
     // D$
-    localparam int unsigned DCACHE_INDEX_WIDTH = 12;  // in bit
-    localparam int unsigned DCACHE_TAG_WIDTH   = riscv::PLEN-DCACHE_INDEX_WIDTH;  // in bit
-    localparam int unsigned DCACHE_LINE_WIDTH  = 128; // in bit
+    localparam int unsigned CONFIG_L1D_SIZE    = 32*1024;
     localparam int unsigned DCACHE_SET_ASSOC   = 8;
+    localparam int unsigned DCACHE_INDEX_WIDTH = $clog2(CONFIG_L1D_SIZE / DCACHE_SET_ASSOC);  // in bit, contains also offset width
+    localparam int unsigned DCACHE_TAG_WIDTH   = riscv::PLEN-DCACHE_INDEX_WIDTH;  // in bit
+    localparam int unsigned DCACHE_LINE_WIDTH  = 256; // in bit
 `endif
 
     // ---------------
@@ -485,7 +487,7 @@ package ariane_pkg;
             EQ, NE, LTS, GES, LTU, GEU: return 1'b1;
             default                   : return 1'b0; // all other ops
         endcase
-    endfunction;
+    endfunction
 
     // -------------------------------
     // Extract Src/Dst FP Reg from Op
@@ -505,7 +507,7 @@ package ariane_pkg;
             endcase
         end else
             return 1'b0;
-    endfunction;
+    endfunction
 
     function automatic logic is_rs2_fpr (input fu_op op);
         if (FP_PRESENT) begin // makes function static for non-fp case
@@ -521,7 +523,7 @@ package ariane_pkg;
             endcase
         end else
             return 1'b0;
-    endfunction;
+    endfunction
 
     // ternary operations encode the rs3 address in the imm field, also add/sub
     function automatic logic is_imm_fpr (input fu_op op);
@@ -534,7 +536,7 @@ package ariane_pkg;
             endcase
         end else
             return 1'b0;
-    endfunction;
+    endfunction
 
     function automatic logic is_rd_fpr (input fu_op op);
         if (FP_PRESENT) begin // makes function static for non-fp case
@@ -551,7 +553,7 @@ package ariane_pkg;
             endcase
         end else
             return 1'b0;
-    endfunction;
+    endfunction
 
     function automatic logic is_amo (fu_op op);
         case (op) inside
@@ -674,6 +676,7 @@ package ariane_pkg;
         logic                     req;                    // we request a new word
         logic                     kill_s1;                // kill the current request
         logic                     kill_s2;                // kill the last request
+        logic                     spec;                   // request is speculative
         logic [riscv::VLEN-1:0]   vaddr;                  // 1st cycle: 12 bit index is taken for lookup
     } icache_dreq_i_t;
 
