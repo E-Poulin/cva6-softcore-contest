@@ -42,6 +42,7 @@ bsp_dir = ../bsp
 #--------------------------------------------------------------------
 
 bmarks = \
+	main_program \
 	coremark \
 	helloworld \
 	helloworld_printf \
